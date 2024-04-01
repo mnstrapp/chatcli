@@ -1,0 +1,10 @@
+# Misc metadata
+.DS_Store
+*.sw*
+
+# IDE metadata
+.vscode
+.idea
+
+# Artifacts
+/target

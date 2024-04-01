@@ -79,7 +79,7 @@ func main() {
 			Type:      gossip.EventType_MessageEventType,
 			FromId:    &user.Id,
 			Timestamp: uint64(time.Now().Unix()),
-			Body:      &gossip.Event_Message{Message: &gossip.MessageEvent{Content: []byte(content)}},
+			Message:   &gossip.MessageEvent{Content: []byte(content)},
 		}
 		_, err = client.SendEvent(context.Background(), event)
 		if err != nil {

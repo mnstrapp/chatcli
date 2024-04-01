@@ -2,18 +2,20 @@ package gossip
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"os"
 
 	grpc "google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 )
 
 var cc GossipApiClient
 
 func newConn(peer string) error {
 	if cc == nil {
-		conn, err := grpc.Dial(peer, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		creds := credentials.NewTLS(&tls.Config{InsecureSkipVerify: false})
+		conn, err := grpc.Dial(peer, grpc.WithTransportCredentials(creds))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error connecting to %s: %s\n", peer, err)
 			return err
