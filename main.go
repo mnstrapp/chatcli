@@ -15,13 +15,15 @@ import (
 )
 
 var (
-	host string
-	name string
+	host      string
+	name      string
+	streaming bool
 )
 
 func init() {
 	flag.StringVar(&host, "host", "", "Gossip host")
 	flag.StringVar(&name, "name", "", "Nickname")
+	flag.BoolVar(&streaming, "streaming", false, "Engage stream mode")
 	flag.Parse()
 }
 
@@ -34,35 +36,64 @@ func main() {
 	user := &gossip.User{Id: name}
 
 	client := gossip.NewClient(host, name)
-
 	go func() {
-		stream, err := client.SubscribeToEvents(context.Background(), user)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error subscribing to events: %s", err)
-			os.Exit(1)
-		}
-		for {
-			event, err := stream.Recv()
+		if streaming {
+			stream, err := client.StreamEvents(context.Background())
 			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					fmt.Fprintf(os.Stderr, "error listening for events: %s", err)
-					os.Exit(1)
+				fmt.Fprintf(os.Stderr, "error subscribing to events: %s", err)
+				os.Exit(1)
+			}
+			for {
+				event, err := stream.Recv()
+				if err != nil {
+					if !errors.Is(err, io.EOF) {
+						fmt.Fprintf(os.Stderr, "error listening for events: %s", err)
+						os.Exit(1)
+					}
+					continue
 				}
-				continue
-			}
 
-			timestamp := time.Unix(int64(event.Timestamp), 0)
-			switch event.Type {
-			case gossip.EventType_UserEventType:
-				fmt.Fprintf(os.Stdout, "[%s:%s] %s\n", *event.FromId, event.GetUser().Status, timestamp)
-			case gossip.EventType_MessageEventType:
-				fmt.Fprintf(os.Stdout, "[%s] %s - %s\n", *event.FromId, timestamp, event.GetMessage().Content)
-			default:
-				fmt.Fprintf(os.Stdout, "[%s:%s] %s\n", *event.FromId, event.Type, timestamp)
-			}
+				timestamp := time.Unix(int64(event.Timestamp), 0)
+				switch event.Type {
+				case gossip.EventType_UserEventType:
+					fmt.Fprintf(os.Stdout, "[%s:%s] %s\n", *event.FromId, event.GetUser().Status, timestamp)
+				case gossip.EventType_MessageEventType:
+					fmt.Fprintf(os.Stdout, "[%s] %s - %s\n", *event.FromId, timestamp, event.GetMessage().Content)
+				default:
+					fmt.Fprintf(os.Stdout, "[%s:%s] %s\n", *event.FromId, event.Type, timestamp)
+				}
 
+			}
+		} else {
+			stream, err := client.SubscribeToEvents(context.Background(), user)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error subscribing to events: %s", err)
+				os.Exit(1)
+			}
+			for {
+				event, err := stream.Recv()
+				if err != nil {
+					if !errors.Is(err, io.EOF) {
+						fmt.Fprintf(os.Stderr, "error listening for events: %s", err)
+						os.Exit(1)
+					}
+					continue
+				}
+
+				timestamp := time.Unix(int64(event.Timestamp), 0)
+				switch event.Type {
+				case gossip.EventType_UserEventType:
+					fmt.Fprintf(os.Stdout, "[%s:%s] %s\n", *event.FromId, event.GetUser().Status, timestamp)
+				case gossip.EventType_MessageEventType:
+					fmt.Fprintf(os.Stdout, "[%s] %s - %s\n", *event.FromId, timestamp, event.GetMessage().Content)
+				default:
+					fmt.Fprintf(os.Stdout, "[%s:%s] %s\n", *event.FromId, event.Type, timestamp)
+				}
+
+			}
 		}
 	}()
+
 	for {
 		reader := bufio.NewReader(os.Stdin)
 		content, err := reader.ReadString('\n')

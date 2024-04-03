@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type GossipApiClient interface {
 	SubscribeToEvents(ctx context.Context, in *User, opts ...grpc.CallOption) (GossipApi_SubscribeToEventsClient, error)
 	SendEvent(ctx context.Context, in *Event, opts ...grpc.CallOption) (*Empty, error)
+	StreamEvents(ctx context.Context, opts ...grpc.CallOption) (GossipApi_StreamEventsClient, error)
 	UnsubscribeFromEvents(ctx context.Context, in *User, opts ...grpc.CallOption) (*Empty, error)
 }
 
@@ -76,6 +77,37 @@ func (c *gossipApiClient) SendEvent(ctx context.Context, in *Event, opts ...grpc
 	return out, nil
 }
 
+func (c *gossipApiClient) StreamEvents(ctx context.Context, opts ...grpc.CallOption) (GossipApi_StreamEventsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &GossipApi_ServiceDesc.Streams[1], "/gossip.GossipApi/StreamEvents", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &gossipApiStreamEventsClient{stream}
+	return x, nil
+}
+
+type GossipApi_StreamEventsClient interface {
+	Send(*Event) error
+	Recv() (*Event, error)
+	grpc.ClientStream
+}
+
+type gossipApiStreamEventsClient struct {
+	grpc.ClientStream
+}
+
+func (x *gossipApiStreamEventsClient) Send(m *Event) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *gossipApiStreamEventsClient) Recv() (*Event, error) {
+	m := new(Event)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *gossipApiClient) UnsubscribeFromEvents(ctx context.Context, in *User, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/gossip.GossipApi/UnsubscribeFromEvents", in, out, opts...)
@@ -91,6 +123,7 @@ func (c *gossipApiClient) UnsubscribeFromEvents(ctx context.Context, in *User, o
 type GossipApiServer interface {
 	SubscribeToEvents(*User, GossipApi_SubscribeToEventsServer) error
 	SendEvent(context.Context, *Event) (*Empty, error)
+	StreamEvents(GossipApi_StreamEventsServer) error
 	UnsubscribeFromEvents(context.Context, *User) (*Empty, error)
 	mustEmbedUnimplementedGossipApiServer()
 }
@@ -104,6 +137,9 @@ func (UnimplementedGossipApiServer) SubscribeToEvents(*User, GossipApi_Subscribe
 }
 func (UnimplementedGossipApiServer) SendEvent(context.Context, *Event) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendEvent not implemented")
+}
+func (UnimplementedGossipApiServer) StreamEvents(GossipApi_StreamEventsServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamEvents not implemented")
 }
 func (UnimplementedGossipApiServer) UnsubscribeFromEvents(context.Context, *User) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UnsubscribeFromEvents not implemented")
@@ -160,6 +196,32 @@ func _GossipApi_SendEvent_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GossipApi_StreamEvents_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(GossipApiServer).StreamEvents(&gossipApiStreamEventsServer{stream})
+}
+
+type GossipApi_StreamEventsServer interface {
+	Send(*Event) error
+	Recv() (*Event, error)
+	grpc.ServerStream
+}
+
+type gossipApiStreamEventsServer struct {
+	grpc.ServerStream
+}
+
+func (x *gossipApiStreamEventsServer) Send(m *Event) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *gossipApiStreamEventsServer) Recv() (*Event, error) {
+	m := new(Event)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func _GossipApi_UnsubscribeFromEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(User)
 	if err := dec(in); err != nil {
@@ -199,6 +261,12 @@ var GossipApi_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "SubscribeToEvents",
 			Handler:       _GossipApi_SubscribeToEvents_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "StreamEvents",
+			Handler:       _GossipApi_StreamEvents_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "gossip.proto",

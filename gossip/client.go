@@ -44,6 +44,11 @@ func (c *Client) SendEvent(ctx context.Context, event *Event) (*Empty, error) {
 	return cc.SendEvent(ctx, event)
 }
 
+func (c *Client) StreamEvents(ctx context.Context) (GossipApi_StreamEventsClient, error) {
+	_ = newConn(c.Peer)
+	return cc.StreamEvents(ctx)
+}
+
 func (c *Client) UnsubscribeFromEvents(ctx context.Context, user *User) (*Empty, error) {
 	_ = newConn(c.Peer)
 	return cc.UnsubscribeFromEvents(ctx, user)
